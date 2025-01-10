@@ -10,7 +10,7 @@ module.exports = {
       const baseDir = process.env.PWD
       const sourceFixtures = `${baseDir}/${sourceFixturesIn}`
       const destFixtures = `${baseDir}/${destFixturesIn}`
-      const version = process.env.NOTIFIER_VERSION || common.determineVersion()
+      const version = process.env.NOTIFIER_VERSION || common.getCommitId()
       const rnVersion = process.env.REACT_NATIVE_VERSION
 
       console.log(`Installing CLI version: ${version}`)
@@ -35,14 +35,22 @@ module.exports = {
       common.run(initCommand, true)
 
       // Use Perl to replace the Bugsnag start command to use a loaded configuration
-      const applicationPath = `android/app/src/main/java/com/${rnVersion}/`
+      const applicationPath = 'android/app/src/main/java/com/reactnative/'
       common.changeDir(`${destFixtures}/${rnVersion}/${applicationPath}`)
       const perlCommand = 'perl -pi -e "s/Bugsnag.start\\(this\\);/Bugsnag.start\\(this, createConfiguration\\(\\)\\);/g" MainApplication.java'
       common.run(perlCommand, true)
 
       // Native layer
       common.changeDir(`${destFixtures}/${rnVersion}/android`)
-      common.run('./gradlew assembleRelease', true)
+      if (process.env.RN_NEW_ARCH) {
+        common.run('./gradlew bugsnag_react-native:generateCodegenArtifactsFromSchema assembleRelease', true)
+      } else {
+        common.run('./gradlew assembleRelease', true)
+      }
+
+      common.changeDir(`${destFixtures}/${rnVersion}`)
+      const bugsnagCliCommand = 'npm run bugsnag:upload-rn-android -- --overwrite'
+      common.run(bugsnagCliCommand, true)
 
       // Finally, copy the APK back to the host
       common.run(`mkdir -p ${baseDir}/build`)
@@ -55,7 +63,7 @@ module.exports = {
   },
   buildIOS: function buildIOS () {
     try {
-      const version = process.env.NOTIFIER_VERSION || common.determineVersion()
+      const version = process.env.NOTIFIER_VERSION || common.getCommitId()
       const rnVersion = process.env.REACT_NATIVE_VERSION
       const fixturesDir = 'features/fixtures'
       const targetDir = `${fixturesDir}/${rnVersion}`
@@ -81,9 +89,16 @@ module.exports = {
       // Clean and build the archive
       common.changeDir(`${initialDir}/${fixturesDir}/${rnVersion}/ios`)
       common.run(`rm -rf ../${rnVersion}.xcarchive`, true)
-      common.run('pod install || pod install --repo-update', true)
+      common.run('bundle install')
+      common.run('bundle exec pod install || bundle exec pod install --repo-update', true)
+      const buildCmd = `xcodebuild -workspace ${rnVersion}.xcworkspace -scheme ${rnVersion} -configuration Release -sdk iphoneos build`
+      common.run(buildCmd, true)
       const archiveCmd = `xcrun xcodebuild -scheme "${rnVersion}" -workspace "${rnVersion}.xcworkspace" -configuration Release -archivePath "../${rnVersion}.xcarchive" -allowProvisioningUpdates archive`
       common.run(archiveCmd, true)
+
+      common.changeDir(`${initialDir}/${fixturesDir}/${rnVersion}`)
+      const bugsnagCliCommand = 'npm run bugsnag:upload-rn-ios -- --overwrite'
+      common.run(bugsnagCliCommand, true)
     } catch (e) {
       console.error(e, e.stack)
       process.exit(1)

@@ -60,7 +60,6 @@ async function init () {
 
 async function update () {
   try {
-    await bootstrap()
     await updateNotifiers()
     await installFixtureDeps()
     await buildFixtures()
@@ -109,11 +108,6 @@ function trace (stepname) {
   console.log(`\n• ${stepname} •\n  ${Array(stepname.length).fill('-').join('')}`)
 }
 
-async function bootstrap () {
-  trace('bootstrap')
-  return ex(`npm`, [ `run`, `bootstrap` ])
-}
-
 async function buildNotifiers (notifier) {
   trace('build notifiers')
   if (notifier) {
@@ -138,7 +132,7 @@ async function installNotifiers (notifier) {
   await ex(`npm`, [
     `install`,
     `--no-package-lock`,
-    `--no-save`
+    `--no-save`,
   ].concat(notifier
     ? [
       `../../../../bugsnag-${notifier}-${require(`../packages/${notifier}/package.json`).version}.tgz`

@@ -1,11 +1,39 @@
-When('I run {string}') do |event_type|
-  steps %Q{
-    Given the element "scenario_name" is present within 60 seconds
-    When I clear and send the keys "#{event_type}" to the element "scenario_name"
-    And I click the element "clear_data"
-    And I click the element "start_bugsnag"
-    And I click the element "run_scenario"
+def execute_command(action, scenario_name = '', scenario_data = '')
+  address = if Maze.config.farm == :bb
+              if Maze.config.aws_public_ip
+                Maze.public_address
+              else
+                'local:9339'
+              end
+            else
+              case Maze::Helper.get_current_platform
+                when 'android'
+                  'localhost:9339'
+                else
+                  'bs-local.com:9339'
+              end
+            end
+
+  command = {
+    action: action,
+    scenario_name: scenario_name,
+    notify: "http://#{address}/notify",
+    sessions: "http://#{address}/sessions",
+    api_key: $api_key,
+    scenario_data: scenario_data
   }
+
+  $logger.debug("Queuing command: #{command}")
+  Maze::Server.commands.add command
+
+  # Ensure fixture has read the command
+  count = 900
+  sleep 0.1 until Maze::Server.commands.remaining.empty? || (count -= 1) < 1
+  raise 'Test fixture did not GET /command' unless Maze::Server.commands.remaining.empty?
+end
+
+When('I run {string}') do |scenario_name|
+  execute_command 'run-scenario', scenario_name
 end
 
 When('I run {string} and relaunch the crashed app') do |event_type|
@@ -64,18 +92,19 @@ When('I clear any error dialogue') do
   driver.click_element('android:id/aerr_restart') if driver.wait_for_element('android:id/aerr_restart', 3)
 end
 
-When('I configure Bugsnag for {string}') do |event_type|
-  steps %Q{
-    Given the element "scenario_name" is present within 60 seconds
-    When I clear and send the keys "#{event_type}" to the element "scenario_name"
-    And I click the element "start_bugsnag"
-  }
+When('I configure Bugsnag for {string}') do |scenario_name|
+  execute_command 'start-bugsnag', scenario_name
 end
 
-When('I configure the app to run in the {string} state') do |event_metadata|
+When('I run {string} with data {string}') do |scenario_name, scenario_data|
+  execute_command 'run-scenario', scenario_name, scenario_data
+end
+
+When('I run {string} with data {string} and relaunch the crashed app') do |scenario_name, scenario_data|
   steps %Q{
-    Given the element "scenario_metadata" is present
-    And I clear and send the keys "#{event_metadata}" to the element "scenario_metadata"
+    When I run "#{scenario_name}" with data "#{scenario_data}"
+    And I clear any error dialogue
+    And I relaunch the app after a crash
   }
 end
 
@@ -119,4 +148,68 @@ Then('the stacktrace contains {string} equal to {string}') do |field_path, expec
     found = true if Maze::Helper.read_key_path(frame, field_path) == expected_value
   end
   fail("No field_path #{field_path} found with value #{expected_value}") unless found
+end
+
+# Tests that the given payload value is correct for the target arch and RN version combination.
+# This step will assume the expected and payload values are strings.
+#
+# The DataTable used for this step should have the headers `arch` `version` and `value`
+# The `arch` column must contain either `old` or `new`
+# The `version` column should contain the version of the app to test the value against, or `default` for unspecified versions
+# The `value` column should contain the expected value for the given arch and version combination
+#
+#   | arch | version | value                      |
+#   | new  | 0.74    | Error                      |
+#   | new  | default | java.lang.RuntimeException |
+#   | old  | default | java.lang.RuntimeException |
+#
+# If the expected value is set to "@null", the check will be for null
+# If the expected value is set to "@not_null", the check will be for a non-null value
+Then('the event {string} equals the version-dependent string:') do |field_path, table|
+  payload = Maze::Server.errors.current[:body]
+  payload_value = Maze::Helper.read_key_path(payload, "events.0.#{field_path}")
+
+  expected_value = get_value_for_arch_and_version(table)
+  
+  unless expected_value.eql?('@skip')
+    assert_equal_with_nullability(expected_value, payload_value)
+  end
+end
+
+Then('the stacktrace contains {string} equal to the version-dependent string:') do |field_path, table|
+  expected_value = get_value_for_arch_and_version(table)
+
+  unless expected_value.eql?('@skip')
+    values = Maze::Helper.read_key_path(Maze::Server.errors.current[:body], "events.0.exceptions.0.stacktrace")
+    found = false
+    values.each do |frame|
+      found = true if Maze::Helper.read_key_path(frame, field_path) == expected_value
+    end
+    fail("No field_path #{field_path} found with value #{expected_value}") unless found
+  end
+end
+
+def get_value_for_arch_and_version(table)
+  expected_values = table.hashes
+
+  arch = ENV['RCT_NEW_ARCH_ENABLED'] == '1' ? 'new' : 'old'
+  arch_values = expected_values.select do |hash|
+    hash['arch'] == arch
+  end
+
+  raise("There is no expected value for the current arch \"#{arch}\"") if arch_values.empty?
+
+  current_version = ENV['RN_VERSION']
+  version_values = arch_values.select do |hash|
+    hash['version'] == current_version
+  end
+
+  if version_values.empty?
+    version_values = arch_values.select { |hash| hash['version'] == 'default' }
+  end
+
+  raise("There is no expected value for the current version \"#{current_version}\"") if version_values.empty?
+  raise("Multiple expected values found for arch \"#{arch}\" and version \"#{current_version}\"") if version_values.length() > 1
+
+  return version_values[0]['value']
 end

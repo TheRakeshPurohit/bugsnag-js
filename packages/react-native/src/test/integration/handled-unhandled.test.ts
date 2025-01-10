@@ -1,5 +1,5 @@
 // @ts-ignore
-import { NativeModules } from 'react-native'
+import { NativeClient } from '../../native'
 
 jest.mock('react-native', () => {
   const events: any[] = []
@@ -11,10 +11,10 @@ jest.mock('react-native', () => {
           enabledBreadcrumbTypes: []
         }),
         leaveBreadcrumb: () => {},
-        dispatch: async (event: any) => {
+        dispatchAsync: async (event: any) => {
           events.push(event)
         },
-        getPayloadInfo: async () => ({
+        getPayloadInfoAsync: async () => ({
           threads: [],
           breadcrumbs: [],
           app: {},
@@ -23,6 +23,7 @@ jest.mock('react-native', () => {
         _events: events,
         _clear: () => { while (events.length) events.pop() },
         resumeSession: () => {},
+        resumeSessionOnStartup: () => {},
         pauseSession: () => {},
         startSession: () => {}
       }
@@ -36,7 +37,7 @@ jest.mock('react-native', () => {
 })
 
 // @ts-ignore
-import rnPromise from '@bugsnag/plugin-react-native-unhandled-rejection/node_modules/promise/setimmediate' // eslint-disable-line
+import rnPromise from 'promise/setimmediate' // eslint-disable-line
 // eslint-disable-next-line
 import Bugsnag from '../../..'
 
@@ -58,20 +59,21 @@ beforeAll(() => {
   jest.spyOn(console, 'warn').mockImplementation(() => {})
 
   // leaving the default handler intact causes simulated unhandled errors to fail tests
+  // @ts-expect-error Property 'ErrorUtils' does not exist on type 'typeof global
   global.ErrorUtils.setGlobalHandler(() => {})
   Bugsnag.start()
 })
 
 // clear the https mock's record of requests between tests
-beforeEach(() => NativeModules.BugsnagReactNative._clear())
+beforeEach(() => NativeClient._clear())
 
 describe('@bugsnag/react-native: handled and unhandled errors', () => {
   it('should send a handled error', (done) => {
     Bugsnag.notify(new Error('oh no'), () => {}, (event) => {
-      expect(NativeModules.BugsnagReactNative._events.length).toBe(1)
-      expect(NativeModules.BugsnagReactNative._events[0].errors[0].errorMessage).toBe('oh no')
-      expect(NativeModules.BugsnagReactNative._events[0].unhandled).toBe(false)
-      expect(NativeModules.BugsnagReactNative._events[0].severityReason).toEqual({ type: 'handledException' })
+      expect(NativeClient._events.length).toBe(1)
+      expect(NativeClient._events[0].errors[0].errorMessage).toBe('oh no')
+      expect(NativeClient._events[0].unhandled).toBe(false)
+      expect(NativeClient._events[0].severityReason).toEqual({ type: 'handledException' })
       expect(event).toBeTruthy()
       done()
     })
@@ -80,12 +82,13 @@ describe('@bugsnag/react-native: handled and unhandled errors', () => {
   it('should send an unhandled error', (done) => {
     // we can't actually throw an error as that will fail the test, but we can
     // send an error to the handler that Bugsnag has hooked into
+    // @ts-expect-error Property 'ErrorUtils' does not exist on type 'typeof global
     global.ErrorUtils.getGlobalHandler()(new Error('hi'))
     setTimeout(() => {
-      expect(NativeModules.BugsnagReactNative._events.length).toBe(1)
-      expect(NativeModules.BugsnagReactNative._events[0].errors[0].errorMessage).toBe('hi')
-      expect(NativeModules.BugsnagReactNative._events[0].unhandled).toBe(true)
-      expect(NativeModules.BugsnagReactNative._events[0].severityReason).toEqual({ type: 'unhandledException' })
+      expect(NativeClient._events.length).toBe(1)
+      expect(NativeClient._events[0].errors[0].errorMessage).toBe('hi')
+      expect(NativeClient._events[0].unhandled).toBe(true)
+      expect(NativeClient._events[0].severityReason).toEqual({ type: 'unhandledException' })
       done()
     }, 10)
   })
@@ -100,10 +103,10 @@ describe('@bugsnag/react-native: handled and unhandled errors', () => {
       rnPromise.reject(e)
     }
     setTimeout(() => {
-      expect(NativeModules.BugsnagReactNative._events.length).toBe(1)
-      expect(NativeModules.BugsnagReactNative._events[0].errors[0].errorMessage).toBe('"sdf".sdflkj is not a function')
-      expect(NativeModules.BugsnagReactNative._events[0].unhandled).toBe(true)
-      expect(NativeModules.BugsnagReactNative._events[0].severityReason).toEqual({ type: 'unhandledPromiseRejection' })
+      expect(NativeClient._events.length).toBe(1)
+      expect(NativeClient._events[0].errors[0].errorMessage).toBe('"sdf".sdflkj is not a function')
+      expect(NativeClient._events[0].unhandled).toBe(true)
+      expect(NativeClient._events[0].severityReason).toEqual({ type: 'unhandledPromiseRejection' })
       done()
     }, 150)
   })

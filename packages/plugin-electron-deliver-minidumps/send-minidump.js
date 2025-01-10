@@ -8,6 +8,8 @@ module.exports = (net, client) => {
   const send = (opts, formData) => {
     return new Promise((resolve, reject) => {
       const req = net.request(opts, response => {
+        response.on('error', reject)
+
         if (isOk(response)) {
           resolve()
         } else {
@@ -32,6 +34,11 @@ module.exports = (net, client) => {
 
   const sendMinidump = async (minidumpPath, event) => {
     const apiKey = (event && event.apiKey) || client._config.apiKey
+
+    if (client._config.endpoints.minidumps === null) {
+      throw new Error('Minidump not sent due to incomplete endpoint configuration')
+    }
+
     const url = new URL(client._config.endpoints.minidumps)
     url.pathname = `${url.pathname.replace(/\/$/, '')}/minidump`
     url.searchParams.set('api_key', apiKey)
