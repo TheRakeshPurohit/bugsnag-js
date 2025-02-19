@@ -121,6 +121,11 @@ class Client {
       return schema
     }, this._schema)
 
+    // sendPayloadChecksums is false by default unless custom endpoints are not specified
+    if (!opts.endpoints) {
+      opts.sendPayloadChecksums = 'sendPayloadChecksums' in opts ? opts.sendPayloadChecksums : true
+    }
+
     // accumulate configuration and error messages
     const { errors, config } = reduce(keys(schema), (accum, key) => {
       const defaultValue = schema[key].defaultValue(opts[key])
@@ -186,7 +191,6 @@ class Client {
     // stuff like __proto__ etc. (only store the result if the plugin had a
     // name)
     if (plugin.name) this._plugins[`~${plugin.name}~`] = result
-    return this
   }
 
   getPlugin (name) {
@@ -213,6 +217,7 @@ class Client {
       this._logger.debug('Session not started due to onSession callback')
       return this
     }
+
     return this._sessionDelegate.startSession(this, session)
   }
 

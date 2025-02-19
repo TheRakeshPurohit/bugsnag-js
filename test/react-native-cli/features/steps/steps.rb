@@ -1,73 +1,52 @@
 require 'rexml/document'
 require 'securerandom'
 
-fixtures = Dir["#{__dir__}/../fixtures/rn0_*"].map { |dir| File.basename(dir) }.sort
-current_fixture = ENV['REACT_NATIVE_VERSION']
+current_fixture = ENV['RN_VERSION']
+fixture_dir = "#{__dir__}/../../../react-native-cli/features/fixtures/generated/"
+generate_fixture_script = "#{__dir__}/../../../../scripts/generate-react-native-cli-fixture.js"
 
-# Ensure environment is set for the CLI tests (check not needed for device-based tests)
-if Maze.config.farm == :none && !fixtures.include?(current_fixture)
-  if current_fixture.nil?
-    message = <<~ERROR.chomp
-      \e[31;1mNo React Native fixture given!\e[0m
-
-      Set the 'REACT_NATIVE_VERSION' environment variable to one of the React Native fixtures
-    ERROR
-  else
-    message = "\e[31;1mInvalid fixture: #{current_fixture.inspect}!\e[0m"
-  end
-
-  raise <<~ERROR
-
-    #{message}
-
-    Valid fixtures are:
-      - #{fixtures.join("\n  - ")}
-  ERROR
+# if RCT_NEW_ARCH_ENABLED is set add new-arch/ to the fixture_dir
+if ENV['RCT_NEW_ARCH_ENABLED'] == 'true' || ENV['RCT_NEW_ARCH_ENABLED'] == '1'
+  fixture_dir += "new-arch/#{ENV['RN_VERSION']}"
+else
+  fixture_dir += "old-arch/#{ENV['RN_VERSION']}"
 end
 
 When('I run the React Native service interactively') do
   step("I run the service '#{current_fixture}' interactively")
 end
 
-When('I notify a handled JavaScript error') do
-  steps %Q{
-    Given the element "js_notify" is present within 60 seconds
-    And I click the element "js_notify"
-  }
-end
-
-When('I notify a handled native error') do
-  steps %Q{
-    Given the element "native_notify" is present within 60 seconds
-    And I click the element "native_notify"
-  }
-end
-
-def find_cli_helper_script
-  # Handle both Dockerized and local Maze Runner executions
-  script = 'react-native-cli-helper.js'
-  possible_locations = %W[
-    #{__dir__}/../../scripts/#{script}
-    #{__dir__}/../../../../scripts/#{script}
-  ]
-  path = possible_locations.find { |path| File.exist?(path) }
-  if path.nil?
-    raise <<~ERROR
-      The React Native CLI helper script was not found in any of the expected locations:
-        - #{possible_locations.join("\n  -")}
-    ERROR
-  end
-  path
-end
-
 When('I build the Android app') do
-  script_path = find_cli_helper_script
-  $logger.info `node -e 'require("#{script_path}").buildAndroid("./features/fixtures", "./local-build")'`
+  $logger.info `node #{generate_fixture_script}`
+
+  # Change directory to fixture_dir
+  Dir.chdir(fixture_dir) do
+    $logger.info `npm run bugsnag:upload-rn-android -- --overwrite`
+  end
 end
 
 When('I build the iOS app') do
-  path = find_cli_helper_script
-  $logger.info `node -e 'require("#{path}").buildIOS()'`
+  $logger.info `node #{generate_fixture_script}`
+
+  # Change directory to fixture_dir
+  Dir.chdir(fixture_dir) do
+    $logger.info `npm run bugsnag:upload-rn-ios -- --overwrite`
+  end
+end
+
+When('I export the iOS archive') do
+  script_path = "#{__dir__}/../../../../scripts/react-native/ios-utils.js"
+  $logger.info `node -e 'require("#{script_path}").buildIPA("#{fixture_dir}")'`
+end
+
+When('the APK file exists') do
+  apk_path = "#{fixture_dir}/reactnative.apk"
+  Maze.check.true(File.exist?(apk_path))
+end
+
+When('the IPA file exists') do
+  ipa_path = "#{fixture_dir}/output/reactnative.ipa"
+  Maze.check.true(File.exist?(ipa_path))
 end
 
 def parse_package_json
@@ -94,6 +73,13 @@ Then('bugsnag source maps library is in the package.json file') do
   Maze.check.include(json['devDependencies'], '@bugsnag/source-maps')
 end
 
+Then('bugsnag cli library is in the package.json file') do
+  json = parse_package_json
+
+  Maze.check.include(json, 'devDependencies')
+  Maze.check.include(json['devDependencies'], '@bugsnag/cli')
+end
+
 Then('bugsnag source maps library version {string} is in the package.json file') do |expected|
   json = parse_package_json
 
@@ -101,6 +87,15 @@ Then('bugsnag source maps library version {string} is in the package.json file')
   Maze.check.include(json['devDependencies'], '@bugsnag/source-maps')
   Maze.check.equal(json['devDependencies']['@bugsnag/source-maps'], expected)
 end
+
+Then('bugsnag cli library version {string} is in the package.json file') do |expected|
+  json = parse_package_json
+
+  Maze.check.include(json, 'devDependencies')
+  Maze.check.include(json['devDependencies'], '@bugsnag/cli')
+  Maze.check.equal(json['devDependencies']['@bugsnag/cli'], expected)
+end
+
 
 Then('bugsnag source maps library is not in the package.json file') do
   json = parse_package_json
@@ -208,12 +203,12 @@ Then('the iOS app contains the bugsnag initialisation code') do
   step("the interactive file '#{filename}' contains '[Bugsnag start];'")
 end
 
-def get_android_main_application_path(current_fixture)
-  "android/app/src/main/java/com/#{current_fixture}/MainApplication.java"
+def get_android_main_application_path
+  "android/app/src/main/java/com/reactnative/MainApplication.java"
 end
 
 Then('the Android app contains the bugsnag initialisation code') do
-  filename = get_android_main_application_path current_fixture
+  filename = get_android_main_application_path
   step("the interactive file '#{filename}' contains 'import com.bugsnag.android.Bugsnag;'")
   step("the interactive file '#{filename}' contains 'Bugsnag.start(this);'")
 end
@@ -226,7 +221,7 @@ Then('the iOS app does not contain the bugsnag initialisation code') do
 end
 
 Then('the Android app does not contain the bugsnag initialisation code') do
-  filename = get_android_main_application_path current_fixture
+  filename = get_android_main_application_path
   step("the interactive file '#{filename}' does not contain 'import com.bugsnag.android.Bugsnag;'")
   step("the interactive file '#{filename}' does not contain 'Bugsnag.start(this);'")
 end
@@ -256,7 +251,7 @@ Then('the modified files are as expected after running the insert command') do
     When I input "git status --porcelain" interactively
     Then I wait for the interactive shell to output the following lines in stdout
       """
-      M #{get_android_main_application_path current_fixture}
+      M #{get_android_main_application_path}
       M index.js
       M ios/#{current_fixture}/AppDelegate.m
       """
@@ -423,4 +418,36 @@ Then('the Content-Type header is valid multipart form-data') do
   expected = /^multipart\/form-data; boundary=--------------------------\d+$/
   actual = Maze::Server.builds.current[:request]['content-type']
   Maze.check.match(expected, actual)
+end
+
+Then('the sourcemaps Content-Type header is valid multipart form-data') do
+  expected = /^multipart\/form-data; boundary=([^;]+)/
+  actual = Maze::Server.sourcemaps.current[:request]['content-type']
+  Maze.check.match(expected, actual)
+end
+
+def rn_version_less_than(string_value, float_value)
+  stripped_string = string_value[2..-1]
+  replaced_string = stripped_string.gsub("_", ".")
+  converted_float = replaced_string.to_f
+  return converted_float < float_value
+end
+
+When('RN version is 0.68 or lower dismiss the warning message') do
+  rn_version_lower = rn_version_less_than(ENV['REACT_NATIVE_VERSION'], 0.69)
+  case rn_version_lower
+  when true
+    steps %Q{
+    And I wait for the interactive shell to output the following lines in stdout
+        """
+        You are running a version of React Native that we cannot automatically integrate with due to known issues with the build when Hermes is enabled.
+
+        If you cannot upgrade to a later version of React Native (version 0.68 or above), you can use an older version of this CLI (version 7.20.x or earlier)
+
+        or follow the manual integration instructions in our online docs: https://docs.bugsnag.com/platforms/react-native/react-native/manual-setup/')
+        """
+    And I wait for the current stdout line to match the regex "Hit enter to continue"
+    When I input a return interactively
+  }
+  end
 end

@@ -60,7 +60,6 @@ async function init () {
 
 async function update () {
   try {
-    await bootstrap()
     await updateNotifiers()
     await installFixtureDeps()
     await buildFixtures()
@@ -74,7 +73,8 @@ async function updateNotifiers (notifier) {
   await buildNotifiers(notifier)
   await packNotifiers(notifier)
   await installNotifiers(notifier)
-  await installNgNotifier(notifier)
+  await installNgNotifier(notifier, '12')
+  await installNgNotifier(notifier, '17')
 }
 
 async function updateFixtures (fixture) {
@@ -109,11 +109,6 @@ function trace (stepname) {
   console.log(`\n• ${stepname} •\n  ${Array(stepname.length).fill('-').join('')}`)
 }
 
-async function bootstrap () {
-  trace('bootstrap')
-  return ex(`npm`, [ `run`, `bootstrap` ])
-}
-
 async function buildNotifiers (notifier) {
   trace('build notifiers')
   if (notifier) {
@@ -128,7 +123,9 @@ async function packNotifiers (notifier) {
     ? [ notifier ]
     : [ 'js', 'browser', 'node', 'web-worker', 'plugin-angular', 'plugin-react', 'plugin-vue' ]
   for (const n of notifiers) {
-    await ex(`npm`, [ `pack`, `--verbose`, `packages/${n}/` ])
+    let packageLocation = `packages/${n}/`
+    if (n === 'plugin-angular') packageLocation += 'dist/'
+    await ex(`npm`, [ `pack`, `--verbose`, packageLocation ])
   }
 }
 
@@ -138,7 +135,7 @@ async function installNotifiers (notifier) {
   await ex(`npm`, [
     `install`,
     `--no-package-lock`,
-    `--no-save`
+    `--no-save`,
   ].concat(notifier
     ? [
       `../../../../bugsnag-${notifier}-${require(`../packages/${notifier}/package.json`).version}.tgz`
@@ -154,7 +151,7 @@ async function installNotifiers (notifier) {
   })
 }
 
-async function installNgNotifier (notifier) {
+async function installNgNotifier (notifier, version = '12') {
   trace('install ng notifier')
   if (notifier && ![ 'browser', 'node', 'js', 'plugin-angular', 'web-worker' ].includes(notifier)) return
   await ex(`npm`, [
@@ -167,7 +164,7 @@ async function installNgNotifier (notifier) {
     `../../../../../../bugsnag-web-worker-${require('../packages/web-worker/package.json').version}.tgz`,
     `../../../../../../bugsnag-plugin-angular-${require('../packages/plugin-angular/package.json').version}.tgz`
   ], {
-    cwd: `${__dirname}/../test/browser/features/fixtures/plugin_angular/ng`
+    cwd: `${__dirname}/../test/browser/features/fixtures/plugin_angular/angular_${version}`
   })
 }
 
