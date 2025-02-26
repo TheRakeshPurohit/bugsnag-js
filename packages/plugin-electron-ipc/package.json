@@ -1,6 +1,6 @@
 {
   "name": "@bugsnag/plugin-electron-ipc",
-  "version": "7.19.0",
+  "version": "8.2.0",
   "main": "electron-ipc.js",
   "description": "@bugsnag/electron plugin to create the IPC layer between main and renderer processes",
   "repository": {
@@ -19,14 +19,17 @@
     "dist/preload.bundle.js"
   ],
   "peerDependencies": {
-    "@bugsnag/core": "^7.9.2"
+    "@bugsnag/core": "^8.0.0"
   },
   "devDependencies": {
-    "@bugsnag/core": "^7.19.0",
+    "@bugsnag/core": "^8.2.0",
     "browserify": "^17.0.0"
   },
   "dependencies": {
     "@bugsnag/safe-json-stringify": "^6.0.0"
+  },
+  "overrides": {
+    "shell-quote": "^1.7.3"
   },
   "author": "Bugsnag",
   "license": "MIT"

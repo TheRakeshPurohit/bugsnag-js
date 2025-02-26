@@ -8,10 +8,10 @@ Scenario: Automatic session on app start
   And the session "Content-Type" header equals "application/json"
   And the session "Bugsnag-Sent-At" header is a timestamp
   And the session payload field "notifier.name" equals the platform-dependent string:
-  | android | Bugsnag React Native |
-  | ios     | iOS Bugsnag Notifier |
+  | android | Android Bugsnag Notifier |
+  | ios     | iOS Bugsnag Notifier     |
   And the session payload field "notifier.url" equals the platform-dependent string:
-  | android | https://github.com/bugsnag/bugsnag-js    |
+  | android | https://bugsnag.com                      |
   | ios     | https://github.com/bugsnag/bugsnag-cocoa |
   And the session payload field "notifier.version" is not null
   And the session payload field "app" is not null
@@ -21,7 +21,7 @@ Scenario: Automatic session on app start
 Scenario: Automatic sessions disabled
   When I run "SessionAutoDisabledScenario"
   And I wait for 5 seconds
-  Then I should receive no requests
+  Then I should receive no sessions
 
 Scenario: Manual JS sessions (JS Controls)
   When I run "SessionJsControlledManualJsScenario"

@@ -1,8 +1,235 @@
 # Changelog
 
-## TBD
+## [Unreleased]
 
-### Changes
+This release adds support for React Native 0.77 to `@bugsnag/react-native`
+
+### Added
+
+- (react-native-cli) Add support for `AppDelegate.swift` files to insert command [#2319](https://github.com/bugsnag/bugsnag-js/pull/2319)
+- (plugin-react-navigation) Add support for React Navigation v7.x [#2335](https://github.com/bugsnag/bugsnag-js/pull/2335)
+
+### Fixed
+
+- (plugin-angular) Added a null check so BugsnagErrorHandler fails silently when misconfigured [#2295](https://github.com/bugsnag/bugsnag-js/pull/2295)
+- (react-native) Fix no such module error when importing Bugsnag from Swift [#2335](https://github.com/bugsnag/bugsnag-js/pull/2335)
+- (react-native) Fix turbo module check in React Native 0.77 [#2341](https://github.com/bugsnag/bugsnag-js/pull/2341)
+
+### Changed
+
+- (react-native-cli) Remove the installation of the BugSnag Android Gradle Plugin [#2346](https://github.com/bugsnag/bugsnag-js/pull/2346)
+
+## [8.2.0] - 2025-01-27
+
+### Added
+
+- Introduce `sendPayloadChecksums` option and set `Bugsnag-Integrity` headers on events and sessions [#2221](https://github.com/bugsnag/bugsnag-js/pull/2221)
+- (plugin-angular) Added Angular runtime version to device info [#2288](https://github.com/bugsnag/bugsnag-js/pull/2288)
+
+### Changed
+
+- (plugin-angular) Generate type definition using Angular 17 [#2275](https://github.com/bugsnag/bugsnag-js/pull/2275)
+- (plugin-angular) Update Angular support to cover v12 - 19 [#2278](https://github.com/bugsnag/bugsnag-js/pull/2278)
+- (react-native) Update bugsnag-android from v6.10.0 to [v6.11.0](https://github.com/bugsnag/bugsnag-android/blob/next/CHANGELOG.md#6110-2025-01-02)
+- (react-native) Update bugsnag-cocoa from v6.30.1 to [v6.31.0](https://github.com/bugsnag/bugsnag-cocoa/blob/master/CHANGELOG.md#6310-2025-01-13)
+
+### Fixed
+
+- Corrected setUser TS interface to allow for null arguments [#2262](https://github.com/bugsnag/bugsnag-js/pull/2262)
+
+## [8.1.3] - 2024-11-28
+
+### Changed
+
+- (react-native) Update bugsnag-android from v6.6.1 to [v6.10.0](https://github.com/bugsnag/bugsnag-android/blob/next/CHANGELOG.md#6100-2024-11-14)
+
+## [8.1.2] - 2024-10-25
+
+### Fixed
+
+- Ensure `reportUnhandledPromiseRejectionsAsHandled` is correctly handled for all platforms [#2239](https://github.com/bugsnag/bugsnag-js/pull/2239)
+
+## [8.1.1] - 2024-10-23
+
+### Fixed
+
+- Add `reportUnhandledPromiseRejectionsAsHandled` config option to typescript definition [#2237](https://github.com/bugsnag/bugsnag-js/pull/2237)
+
+## [8.1.0] - 2024-10-23
+
+### Added
+
+- Add new `reportUnhandledPromiseRejectionsAsHandled` config option to allow unhandled promise rejections to be reported as handled and not contribute to the app stability score [#2225](https://github.com/bugsnag/bugsnag-js/pull/2225)
+
+## [8.0.0] - 2024-08-29
+
+### Summary
+
+As well as some bug fixes and **breaking changes** described in the [Upgrade Guide](./UPGRADING.md), this major SDK release has the following key features:
+
+- Improved API for NodeJS: the `Bugsnag` client can now be used to call SDK methods in the context of the current request
+- Breadcrumb support for NodeJS: we now support manual breadcrumbs and capture console breadcrumbs automatically
+- Improved session reporting for single page apps: a session is now created only once per page load to more accurately reflect a user's session in your app
+
+### Added
+
+- (node) Add support for manual breadcrumbs [#1927](https://github.com/bugsnag/bugsnag-js/pull/1927) and automatic console breadcrumbs [#2107](https://github.com/bugsnag/bugsnag-js/pull/2107)
+- Support error correlation properties in event payloads [#2174](https://github.com/bugsnag/bugsnag-js/pull/2174)
+
+### Fixed
+
+- (plugin-angular) Prevent excess change detection cycles when calling `Bugsnag.notify` [#1861](https://github.com/bugsnag/bugsnag-js/pull/1861)
+
+### Changed
+
+- (node) Enable breadcrumbs and context-scoped calls [#1927](https://github.com/bugsnag/bugsnag-js/pull/1927)
+- (plugin-contextualize) Reimplement without relying on the deprecated node Domain API. From Node 16+ unhandled promise rejections are also supported [#1924](https://github.com/bugsnag/bugsnag-js/pull/1924)
+- (plugin-navigation-breadcrumbs) Calling `pushState` or `replaceState` no longer triggers a new session when `autoTrackSessions` is enabled [#1820](https://github.com/bugsnag/bugsnag-js/pull/1820)
+- (plugin-network-breadcrumbs, plugin-electron-net-breadcrumbs) *Breaking change*: The `request` metadata field in network breadcrumbs has been renamed to `url` and is no longer pre-pended with the HTTP method [#1988](https://github.com/bugsnag/bugsnag-js/pull/1988)
+- (plugin-network-breadcrumbs, plugin-electron-net-breadcrumbs) Add `method` metadata field to network breadcrumbs [#1988](https://github.com/bugsnag/bugsnag-js/pull/1988)
+- (plugin-network-breadcrumbs, plugin-electron-net-breadcrumbs) Add `duration` metadata field to network breadcrumbs [#1903](https://github.com/bugsnag/bugsnag-js/pull/1903)
+- (react-native) Update bugsnag-android from v5.32.2 to [v6.6.1](https://github.com/bugsnag/bugsnag-android/blob/next/CHANGELOG.md#661-2024-07-03)
+
+## [7.25.1] - 2024-08-27
+
+### Changed
+
+- (react-native) Update bugsnag-cocoa from v6.29.0 to [v6.30.1](https://github.com/bugsnag/bugsnag-cocoa/blob/master/CHANGELOG.md#6301-2024-07-25)
+
+### Fixed
+
+- (plugin-vue) Check global vue config exists before installing vue 2 handler [#2171](https://github.com/bugsnag/bugsnag-js/pull/2171)
+
+## [7.25.0] - 2024-07-03
+
+### Added
+
+- (core) Add new `setTraceCorrelation` method to events [#2159](https://github.com/bugsnag/bugsnag-js/pull/2159)
+
+### Changed
+
+- (react-native) Update bugsnag-cocoa from v6.28.1 to [v6.29.0](https://github.com/bugsnag/bugsnag-cocoa/blob/master/CHANGELOG.md#6290-2024-06-19)
+- (react-native) Update bugsnag-android from v5.32.2 to [v5.32.3](https://github.com/bugsnag/bugsnag-android/blob/v5.32.3/CHANGELOG.md#5323-2024-06-27)
+
+### Fixed
+
+- (react-native) Use synchronous native module calls when New Architecture is enabled [#2152](https://github.com/bugsnag/bugsnag-js/pull/2152)
+- (react-native) Ensure client is initialised synchronously in bridgeless mode [#2165](https://github.com/bugsnag/bugsnag-js/pull/2165)
+
+## [7.24.0] - 2024-06-10
+
+### Added
+
+- (react-native) Add privacy manifest resource bundle to podspec [#2149](https://github.com/bugsnag/bugsnag-js/pull/2149)
+
+### Changed
+
+- (plugin-react) Modified the polynomial regular expression to remove the ambiguity [#2135](https://github.com/bugsnag/bugsnag-js/pull/2135)
+- (react-native) ReactNative apps loaded in the background will no longer start a new session [#2154](https://github.com/bugsnag/bugsnag-js/pull/2154)
+
+### Fixed
+
+- (react-native) Discard duplicate JS exceptions in iOS New Architecture [#2148](https://github.com/bugsnag/bugsnag-js/pull/2148)
+
+## [7.23.0] - 2024-05-09
+
+### Added
+
+- (electron) Added support for Webpack 5 by exporting separate clients for renderer and main processes [#2116](https://github.com/bugsnag/bugsnag-js/pull/2116)
+- (react-native-cli) Update the react native cli to install and configure the `@bugsnag/cli` package to upload javascript source maps for react native iOS [#2073](https://github.com/bugsnag/bugsnag-js/pull/2073)
+
+## v7.22.7 (2024-04-17)
+
+### Changed
+
+- (metadata-delegate) Preventing prototype pollution vulnerabilities [#2115](https://github.com/bugsnag/bugsnag-js/pull/2115)
+- (plugin-interaction-breadcrumbs) Improved performance of click event breadcrumbs [#2094](https://github.com/bugsnag/bugsnag-js/pull/2094)
+- (react-native) Rename Bugsnag.framework to BugsnagReactNative.framework [#2117](https://github.com/bugsnag/bugsnag-js/pull/2117)
+- (browser) Export BrowserBugsnagStatic [#2112](https://github.com/bugsnag/bugsnag-js/pull/2112)
+
+### Fixed
+
+- (react-native) Move BugsnagReactNative from objective-c to objective c++ [#2113](https://github.com/bugsnag/bugsnag-js/pull/2113)
+
+## v7.22.6 (2024-03-05)
+
+### Changed
+
+- (react-native) Update bugsnag-cocoa from v6.28.0 to [v6.28.1](https://github.com/bugsnag/bugsnag-cocoa/blob/master/CHANGELOG.md#6281-2024-02-28)
+
+### Fixed
+
+- (react-native) Fix React Native CLI for RN 0.73 [#2091](https://github.com/bugsnag/bugsnag-js/pull/2091) [#2092](https://github.com/bugsnag/bugsnag-js/pull/2092)
+
+## v7.22.5 (2024-02-15)
+
+### Changed
+
+- (react-native) Update bugsnag-android from v5.32.1 to [v5.32.2](https://github.com/bugsnag/bugsnag-android/blob/v5.32.2/CHANGELOG.md#5322-2024-02-12)
+
+## v7.22.4 (2024-02-06)
+
+This release adds support for React Native 0.73 to `@bugsnag/react-native`
+
+### Changed
+
+- (react-native) Update bugsnag-android from v5.31.3 to [v5.32.1](https://github.com/bugsnag/bugsnag-android/blob/v5.32.1/CHANGELOG.md#5321-2024-01-23)
+
+### Fixed
+
+- (plugin-vue) Handle updated Vue error info URL [#2068](https://github.com/bugsnag/bugsnag-js/pull/2068)
+- (react-native) Publish xcprivacy file from vendored bugsnag-cocoa [#2072](https://github.com/bugsnag/bugsnag-js/pull/2072)
+
+## v7.22.3 (2024-01-03)
+
+### Changed
+
+- (react-native) Update bugsnag-cocoa from v6.27.3 to [v6.28.0](https://github.com/bugsnag/bugsnag-cocoa/blob/master/CHANGELOG.md#6280-2023-12-13) (includes compliance with Apple's Required Reasons API  – see [online docs](https://docs.bugsnag.com/platforms/ios/appstore-privacy/#declaring-required-reasons-for-api-usage))
+
+### Fixed
+
+- (plugin-vue) Fix errorInfo metadata in Vue 3.4+ [#2062](https://github.com/bugsnag/bugsnag-js/pull/2062)
+
+## v7.22.2 (2023-11-21)
+
+### Changed
+
+- (react-native) Update bugsnag-android from v5.28.4 to [v5.31.3](https://github.com/bugsnag/bugsnag-android/blob/master/CHANGELOG.md#5313-2023-11-06)
+- (react-native) Update bugsnag-cocoa from v6.26.2 to [v6.27.3](https://github.com/bugsnag/bugsnag-cocoa/blob/master/CHANGELOG.md#6273-2023-11-15)
+
+### Fixed
+
+- (electron) Do not sync to NativeClient when `autoDetectErrors` or `nativeCrashes` are disabled [#2040](https://github.com/bugsnag/bugsnag-js/pull/2040)
+
+## 7.22.1 (2023-10-31)
+
+### Fixed
+
+- (electron) Fix startup crash when using Electron v26+ on Linux [#2022](https://github.com/bugsnag/bugsnag-js/pull/2022)
+- (electron) Fix unhandled secondary errors during delivery [#2025](https://github.com/bugsnag/bugsnag-js/pull/2025)
+
+## 7.22.0 (2023-09-13)
+
+### Changed
+
+(react-native-cli) Update the react native cli to install and configure the `@bugsnag/cli` package to upload javascript source maps for react native android [#1990](https://github.com/bugsnag/bugsnag-js/pull/1990)
+
+## 7.21.0 (2023-08-15)
+
+This release adds support for apps using React Native New Architecture
+
+### Added
+
+- (react-native) Support React Native New Architecture [#1973](https://github.com/bugsnag/bugsnag-js/pull/1973)
+
+### Fixed
+
+- (electron) Fix `onSendError` callbacks not being called [#1999](https://github.com/bugsnag/bugsnag-js/pull/1999)
+- (plugin-inline-script-content) Ensure script metadata is added in Safari 16 [#1998](https://github.com/bugsnag/bugsnag-js/pull/1998)
+
+## 7.20.2 (2023-04-25)
+
+### Changed
 
 - (react-native) Update bugsnag-android from v5.28.3 to [v5.28.4](https://github.com/bugsnag/bugsnag-android/blob/master/CHANGELOG.md#5284-2023-02-08)
 - (react-native) Update bugsnag-cocoa from v6.25.2 to [v6.26.2](https://github.com/bugsnag/bugsnag-cocoa/blob/master/CHANGELOG.md#6262-2023-04-20)
@@ -10,7 +237,7 @@
 
 ## 7.20.1 (2023-02-08)
 
-### Changes
+### Changed
 
 - (web-worker) Change default configuration for autoDetectErrors to false [#1919](https://github.com/bugsnag/bugsnag-js/pull/1919)
 
@@ -23,7 +250,7 @@ This release adds support for service workers and web workers [#1915](https://gi
 - (delivery-fetch) Create fetch based delivery package [#1894](https://github.com/bugsnag/bugsnag-js/pull/1894)
 - (web-worker) Create web-worker notifier package [#1896](https://github.com/bugsnag/bugsnag-js/pull/1896)
 
-### Changes
+### Changed
 
 - (plugin-browser-device) Refactor parameters for improved guarding [#1896](https://github.com/bugsnag/bugsnag-js/pull/1896)
 

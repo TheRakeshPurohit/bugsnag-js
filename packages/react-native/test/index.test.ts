@@ -19,10 +19,11 @@ jest.mock('react-native', () => ({
       })),
       updateCodeBundleId: jest.fn(),
       resumeSession: jest.fn(),
+      resumeSessionOnStartup: jest.fn(),
       addFeatureFlags: jest.fn(),
       leaveBreadcrumb: jest.fn(),
-      getPayloadInfo: jest.fn().mockReturnValue({}),
-      dispatch: jest.fn().mockResolvedValue(true)
+      getPayloadInfoAsync: jest.fn().mockResolvedValue({}),
+      dispatchAsync: jest.fn().mockResolvedValue(true)
     }
   },
   Platform: {
@@ -42,7 +43,9 @@ describe('react native notifier', () => {
       Bugsnag = require('..')
     })
 
+    // @ts-expect-error Cannot find name 'window'
     window.fetch = jest.fn()
+    // @ts-expect-error Cannot find name 'window'
     window.XMLHttpRequest = jest.fn() as any
   })
 
@@ -78,7 +81,7 @@ describe('react native notifier', () => {
       if (err) {
         done(err)
       }
-      expect(NativeClient.dispatch).toHaveBeenCalledWith(expect.objectContaining({
+      expect(NativeClient.dispatchAsync).toHaveBeenCalledWith(expect.objectContaining({
         errors: expect.arrayContaining([
           expect.objectContaining({
             errorClass: 'Error',
@@ -103,6 +106,14 @@ describe('react native notifier', () => {
     })
 
     expect(NativeModules.BugsnagReactNative.addFeatureFlags).toHaveBeenCalled()
+  })
+
+  it('accepts the reportUnhandledPromiseRejectionsAsHandled config option', () => {
+    const warnMock = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+    Bugsnag.start({ reportUnhandledPromiseRejectionsAsHandled: true })
+
+    expect(warnMock).not.toHaveBeenCalled()
   })
 
   describe('isStarted()', () => {

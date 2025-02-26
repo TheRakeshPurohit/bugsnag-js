@@ -5,7 +5,7 @@ const { readFixtureFile } = require('../utils')
 const expect = require('../utils/expect')
 const { applySourcemaps } = require('../utils/source-mapper')
 
-const REQUEST_RESOLUTION_TIMEOUT = 3000
+const REQUEST_RESOLUTION_TIMEOUT = 5000
 const launchConfig = { timeout: 30 * 1000 }
 const requestDelay = (callback) => new Promise((resolve, reject) => {
   setTimeout(() => callback(resolve), REQUEST_RESOLUTION_TIMEOUT)
@@ -35,7 +35,7 @@ Given('I launch an app', launchConfig, async () => {
 })
 
 Given('I launch an app with configuration:', launchConfig, (data) => {
-  const setup = { bugsnag: 'default', preload: 'default.js', renderer_config: '{}' }
+  const setup = { bugsnag: 'default', preload: 'default', renderer_config: '{}' }
   data.raw().forEach(row => {
     const [key, config] = row
     setup[key] = config
@@ -44,7 +44,8 @@ Given('I launch an app with configuration:', launchConfig, (data) => {
   return global.automator.start({
     BUGSNAG_CONFIG: setup.bugsnag,
     BUGSNAG_PRELOAD: setup.preload,
-    BUGSNAG_RENDERER_CONFIG: setup.renderer_config
+    BUGSNAG_RENDERER_CONFIG: setup.renderer_config,
+    SERVER_ADDRESS: `http://localhost:${global.server.port}`
   })
 })
 
@@ -138,7 +139,7 @@ Then('minidump request {int} has no feature flags', async (index) => {
 
   expect(actual).toHaveProperty('events')
   expect(actual.events).toHaveLength(1)
-  expect(actual.events[0]).toHaveProperty('featureFlags', [])
+  expect(actual.events[0]).not.toHaveProperty('featureFlags')
 })
 
 Then('the total requests received by the server matches:', async (data) => {

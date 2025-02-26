@@ -7,13 +7,21 @@ const platformToOs = new Map([
 // electron memory APIs are documented as KB but are actually KiB
 const kibibytesToBytes = kibibytes => kibibytes * 1024
 
-const createDeviceUpdater = (client, NativeClient, device) => newProperties => {
-  Object.assign(device, newProperties)
+const isNativeClientEnabled = client => client._config.autoDetectErrors && client._config.enabledErrorTypes.nativeCrashes
 
-  try {
-    NativeClient.setDevice(device)
-  } catch (err) {
-    client._logger.error(err)
+const createDeviceUpdater = (client, NativeClient, device) => {
+  if (!isNativeClientEnabled(client)) {
+    return newProperties => Object.assign(device, newProperties)
+  }
+
+  return newProperties => {
+    Object.assign(device, newProperties)
+
+    try {
+      NativeClient.setDevice(device)
+    } catch (err) {
+      client._logger.error(err)
+    }
   }
 }
 
@@ -45,14 +53,48 @@ module.exports = (app, screen, process, filestore, NativeClient, powerMonitor) =
       }
     })
 
-    client.addMetadata('device', {
-      // the value for 'idleThreshold' doesn't matter here because it is ignored
-      // if the system is locked and that's the only state we care about
-      isLocked: powerMonitor.getSystemIdleState(1) === 'locked',
-      // note: this is only available from Electron 12, earlier versions cannot
-      // read the battery state without 'on-ac'/'on-battery' events
-      usingBattery: powerMonitor.onBatteryPower
+    app.whenReady().then(() => {
+      client.addMetadata('device', {
+        // the value for 'idleThreshold' doesn't matter here because it is ignored
+        // if the system is locked and that's the only state we care about
+        isLocked: powerMonitor.getSystemIdleState(1) === 'locked',
+        // note: this is only available from Electron 12, earlier versions cannot
+        // read the battery state without 'on-ac'/'on-battery' events
+        usingBattery: powerMonitor.onBatteryPower
+      })
+
+      powerMonitor.on('on-ac', () => {
+        client.addMetadata('device', { usingBattery: false })
+      })
+
+      powerMonitor.on('on-battery', () => {
+        client.addMetadata('device', { usingBattery: true })
+      })
+
+      powerMonitor.on('unlock-screen', () => {
+        client.addMetadata('device', { isLocked: false })
+      })
+
+      powerMonitor.on('lock-screen', () => {
+        client.addMetadata('device', { isLocked: true })
+      })
     })
+
+    client.addOnError(event => {
+      event.device = Object.assign(
+        {},
+        event.device,
+        device,
+        {
+          freeMemory: kibibytesToBytes(process.getSystemMemoryInfo().free),
+          time: new Date()
+        }
+      )
+
+      event.addMetadata('device', { idleTime: powerMonitor.getSystemIdleTime() })
+
+      setDefaultUserId(event)
+    }, true)
 
     app.whenReady().then(() => {
       // on windows, app.getLocale won't return the locale until the app is ready
@@ -87,38 +129,6 @@ module.exports = (app, screen, process, filestore, NativeClient, powerMonitor) =
         })
       })
     })
-
-    powerMonitor.on('on-ac', () => {
-      client.addMetadata('device', { usingBattery: false })
-    })
-
-    powerMonitor.on('on-battery', () => {
-      client.addMetadata('device', { usingBattery: true })
-    })
-
-    powerMonitor.on('unlock-screen', () => {
-      client.addMetadata('device', { isLocked: false })
-    })
-
-    powerMonitor.on('lock-screen', () => {
-      client.addMetadata('device', { isLocked: true })
-    })
-
-    client.addOnError(event => {
-      event.device = Object.assign(
-        {},
-        event.device,
-        device,
-        {
-          freeMemory: kibibytesToBytes(process.getSystemMemoryInfo().free),
-          time: new Date()
-        }
-      )
-
-      event.addMetadata('device', { idleTime: powerMonitor.getSystemIdleTime() })
-
-      setDefaultUserId(event)
-    }, true)
 
     client.addOnSession(session => {
       session.device = Object.assign(

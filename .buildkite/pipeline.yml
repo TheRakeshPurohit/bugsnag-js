@@ -1,29 +1,14 @@
-steps:
+agents:
+  queue: "opensource"
 
-  #
+steps:
   # License audit
   #
   - label: ":copyright: License Audit"
     timeout_in_minutes: 20
     agents:
-      queue: opensource-arm-mac-cocoa-12
-    env:
-      DEVELOPER_DIR: /Applications/Xcode13.4.app
+      queue: "macos-node-18"
     command: scripts/license_finder.sh
-
-  #
-  # Android builder base - used by React Native and React Native CLI
-  #
-  - label: ":docker: Build Android Builder base image"
-    key: "android-builder-base"
-    timeout_in_minutes: 30
-    plugins:
-      - docker-compose#v4.12.0:
-          build: android-builder-base
-          image-repository: 855461928731.dkr.ecr.us-west-1.amazonaws.com/js
-          cache-from:  android-builder-base:855461928731.dkr.ecr.us-west-1.amazonaws.com/js:android-builder-base
-      - docker-compose#v4.12.0:
-          push: android-builder-base:855461928731.dkr.ecr.us-west-1.amazonaws.com/js:android-builder-base
 
   #
   # Publish/package notifier
@@ -36,25 +21,21 @@ steps:
           run: minimal-packager
     artifact_paths: min_packages.tar
 
-  - label: ":docker: Build and publish JS packages"
+  - label: "Build and publish JS packages"
     key: "publish-js"
-    timeout_in_minutes: 30
-    plugins:
-      - docker-compose#v4.12.0:
-          build: publisher
-          image-repository: 855461928731.dkr.ecr.us-west-1.amazonaws.com/js
-
-  - label: ":aws-lambda: AWS Lambda tests"
-    timeout_in_minutes: 35
+    timeout_in_minutes: 10
     agents:
-      queue: "opensource-mac-cocoa-10.15"
-    commands:
-      # force the NPM registry as the default on CI is artifactory, which can't
-      # currently install from our lockfile
-      - npm ci --registry https://registry.npmjs.org
-      - cd test/aws-lambda
-      - bundle install
-      - bundle exec maze-runner
+      queue: "macos-node-18"
+    env:
+      NODE_VERSION: "18"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    command:
+      - "bundle install"
+      - "node scripts/publish.js $$PUBLISH_URL"
+    retry:
+      automatic:
+        - exit_status: "*"
+          limit: 1
 
   #
   # Core tests and checks
@@ -77,6 +58,10 @@ steps:
           push:
             - ci:855461928731.dkr.ecr.us-west-1.amazonaws.com/js:ci-base-${BRANCH_NAME}
             - ci:855461928731.dkr.ecr.us-west-1.amazonaws.com/js:ci-base
+    retry:
+      automatic:
+        - exit_status: "*"
+          limit: 1
 
   - label: "Lint"
     depends_on: "ci-image"
@@ -104,69 +89,50 @@ steps:
 
   - label: ":large_blue_circle: :large_blue_circle: :large_blue_circle: BROWSER STEPS :large_blue_circle: :large_blue_circle: :large_blue_circle:"
     depends_on: "package-js"
+    agents:
+      queue: "macos"
+    timeout_in_minutes: 5
     commands:
-      - buildkite-agent pipeline upload .buildkite/browser-pipeline.yml
+      - buildkite-agent pipeline upload .buildkite/basic/browser-pipeline.yml
 
   - label: ":large_blue_circle: :large_blue_circle: :large_blue_circle: ELECTRON STEPS :large_blue_circle: :large_blue_circle: :large_blue_circle:"
-    skip: Skipped pending PLAT-10345
+    agents:
+      queue: "macos"
+    timeout_in_minutes: 5
     commands:
-      - buildkite-agent pipeline upload .buildkite/electron-pipeline.yml
+      - buildkite-agent pipeline upload .buildkite/basic/electron-pipeline.yml
 
   - label: ":large_blue_circle: :large_blue_circle: :large_blue_circle: NODE STEPS :large_blue_circle: :large_blue_circle: :large_blue_circle:"
     depends_on: "package-js"
+    agents:
+      queue: "macos"
+    timeout_in_minutes: 5
     commands:
-      - buildkite-agent pipeline upload .buildkite/node-pipeline.yml
+      - buildkite-agent pipeline upload .buildkite/basic/node-pipeline.yml
 
   - label: ":large_blue_circle: :large_blue_circle: :large_blue_circle: REACT NATIVE (ANDROID) STEPS :large_blue_circle: :large_blue_circle: :large_blue_circle:"
     depends_on:
       - "publish-js"
-      - "android-builder-base"
+    agents:
+      queue: "macos"
+    timeout_in_minutes: 5
     commands:
-      - buildkite-agent pipeline upload .buildkite/react-native-android-pipeline.yml
+      - buildkite-agent pipeline upload .buildkite/basic/react-native-android-pipeline.yml
 
   - label: ":large_blue_circle: :large_blue_circle: :large_blue_circle: REACT NATIVE (IOS) STEPS :large_blue_circle: :large_blue_circle: :large_blue_circle:"
     depends_on:
       - "publish-js"
+    agents:
+      queue: "macos"
+    timeout_in_minutes: 5
     commands:
-      - buildkite-agent pipeline upload .buildkite/react-native-ios-pipeline.yml
+      - buildkite-agent pipeline upload .buildkite/basic/react-native-ios-pipeline.yml
 
-  - label: ":large_blue_circle: :large_blue_circle: :large_blue_circle: REACT NATIVE CLI STEPS :large_blue_circle: :large_blue_circle: :large_blue_circle:"
-    depends_on:
-      - "publish-js"
-      - "android-builder-base"
-    commands:
-      - buildkite-agent pipeline upload .buildkite/react-native-cli-pipeline.yml
-
-  - label: "@bugsnag/expo latest"
-    depends_on: "publish-js"
-    trigger: "bugsnag-expo"
-    build:
-      # don't specify 'branch' here so we build the default branch in the expo
-      # repo, which should be the most up-to-date @bugsnag/expo version
-      env:
-        BUGSNAG_JS_BRANCH: "${BUILDKITE_BRANCH}"
-        BUGSNAG_JS_COMMIT: "${BUILDKITE_COMMIT}"
-        # a branch name that's safe to use as a docker cache identifier
-        BUGSNAG_JS_CACHE_SAFE_BRANCH_NAME: "${BRANCH_NAME}"
-
-  - label: "@bugsnag/expo v48/next"
-    depends_on: "publish-js"
-    trigger: "bugsnag-expo"
-    build:
-      branch: "v48/next"
-      env:
-        BUGSNAG_JS_BRANCH: "${BUILDKITE_BRANCH}"
-        BUGSNAG_JS_COMMIT: "${BUILDKITE_COMMIT}"
-        # a branch name that's safe to use as a docker cache identifier
-        BUGSNAG_JS_CACHE_SAFE_BRANCH_NAME: "${BRANCH_NAME}"
-
-  - label: "@bugsnag/expo v47/next"
-    depends_on: "publish-js"
-    trigger: "bugsnag-expo"
-    build:
-      branch: "v47/next"
-      env:
-        BUGSNAG_JS_BRANCH: "${BUILDKITE_BRANCH}"
-        BUGSNAG_JS_COMMIT: "${BUILDKITE_COMMIT}"
-        # a branch name that's safe to use as a docker cache identifier
-        BUGSNAG_JS_CACHE_SAFE_BRANCH_NAME: "${BRANCH_NAME}"
+  #
+  # Conditionally trigger full pipeline
+  #
+  - label: 'Conditionally trigger full set of tests'
+    agents:
+      queue: "macos"
+    timeout_in_minutes: 5
+    command: sh -c .buildkite/pipeline_trigger.sh

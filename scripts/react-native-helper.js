@@ -7,14 +7,11 @@ const fs = require('fs')
 module.exports = {
   buildAndroid: function buildAndroid (sourceFixtures, destFixtures) {
     try {
-      const version = process.env.NOTIFIER_VERSION || common.determineVersion()
+      const version = process.env.NOTIFIER_VERSION || common.getCommitId()
       const rnVersion = process.env.REACT_NATIVE_VERSION
       const registryUrl = process.env.REGISTRY_URL
 
-      let jsSourceDir = 'scenario_js'
-      if (process.env.JS_SOURCE_DIR) {
-        jsSourceDir = process.env.JS_SOURCE_DIR
-      }
+      const jsSourceDir = process.env.JS_SOURCE_DIR || 'scenario_js'
 
       let artefactName = rnVersion
       if (process.env.ARTEFACT_NAME) {
@@ -35,8 +32,12 @@ module.exports = {
       common.run(`npm install --registry ${registryUrl}`, true)
 
       // Install notifier
-      const command = `npm install @bugsnag/react-native@${version}  --registry ${registryUrl}`
+      const command = `npm install @bugsnag/react-native@${version}  --registry ${registryUrl} --legacy-peer-deps`
       common.run(command, true)
+
+      // Install react-native-file-access
+      const RNFACommand = `npm install react-native-file-access@3.0.4  --registry ${registryUrl}`
+      common.run(RNFACommand, true)
 
       // Install any required secondary files
       if (fs.existsSync('./install.sh')) {
@@ -46,7 +47,13 @@ module.exports = {
 
       // Native layer
       common.changeDir('android')
-      common.run('./gradlew assembleRelease', true)
+
+      if (process.env.RN_NEW_ARCH === 'true') {
+        common.run('cp newarch.gradle.properties gradle.properties')
+        common.run('./gradlew generateCodegenArtifactsFromSchema assembleRelease', true)
+      } else {
+        common.run('./gradlew assembleRelease', true)
+      }
 
       // Finally, copy the APK back to the host
       fs.copyFileSync(`${destFixtures}/${rnVersion}/android/app/build/outputs/apk/release/app-release.apk`,
@@ -58,7 +65,7 @@ module.exports = {
   },
   buildIOS: function buildIOS () {
     try {
-      const version = process.env.NOTIFIER_VERSION || common.determineVersion()
+      const version = process.env.NOTIFIER_VERSION || common.getCommitId()
       const rnVersion = process.env.REACT_NATIVE_VERSION
       const registryUrl = process.env.REGISTRY_URL
       const fixtureDir = 'test/react-native/features/fixtures'
@@ -91,8 +98,12 @@ module.exports = {
 
       // Install notifier
       console.log(`Installing notifier: ${version}`)
-      const command = `npm install @bugsnag/react-native@${version}  --registry ${registryUrl}`
+      const command = `npm install @bugsnag/react-native@${version}  --registry ${registryUrl} --legacy-peer-deps`
       common.run(command, true)
+
+      // Install react-native-file-access
+      const RNFACommand = `npm install react-native-file-access@3.0.4  --registry ${registryUrl}`
+      common.run(RNFACommand, true)
 
       // Install any required secondary files
       if (fs.existsSync('./install.sh')) {
